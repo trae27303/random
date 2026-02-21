@@ -6,7 +6,7 @@ type CallState = "idle" | "requesting" | "incoming" | "connecting" | "connected"
 
 interface ChatMessage {
   id: string;
-  sender: "me" | "other";
+  sender: "me" | "stranger";
   text: string;
 }
 
@@ -91,7 +91,7 @@ export function useDirectCall() {
           break;
           
         case "chat":
-           setChatMessages(prev => [...prev, { id: crypto.randomUUID(), sender: "other", text: msg.message }]);
+           setChatMessages(prev => [...prev, { id: crypto.randomUUID(), sender: "stranger", text: msg.message }]);
            break;
            
         case "error":

@@ -5,8 +5,6 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import dns from "dns";
 
-// prefer IPv4 first to avoid IPv6-only resolution on platforms without IPv6 egress
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (dns as any).setDefaultResultOrder?.("ipv4first");
 
 const app = express();

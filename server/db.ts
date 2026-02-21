@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
+import dns from "dns";
 
 const { Pool } = pg;
 
@@ -20,7 +21,10 @@ function buildPool() {
       ssl = { rejectUnauthorized: false };
     }
   } catch {}
-  return new Pool({ connectionString: process.env.DATABASE_URL, ssl });
+  const lookup4 = ((hostname: string, _opts: any, cb: any) =>
+    dns.lookup(hostname, { family: 4, all: false }, cb)) as any;
+  const cfg: any = { connectionString: process.env.DATABASE_URL, ssl, lookup: lookup4 };
+  return new Pool(cfg);
 }
 
 export const pool = buildPool();
