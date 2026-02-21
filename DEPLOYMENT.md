@@ -88,3 +88,17 @@ Use any of the following to create a strong token. Store it in Render env as `ST
   ```bash
   openssl rand -hex 32
   ```
+
+### Supabase Pooler Configuration (Recommended for Render)
+If using Supabase, use the Transaction Pooler (IPv4 compatible) instead of the direct connection.
+1. Go to Supabase Dashboard -> Project Settings -> Database.
+2. Find the **Connection String** section and select **Transaction Pooler** (port 6543).
+3. Use this format for `DATABASE_URL`:
+   ```
+   postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[POOLER-HOST]:6543/postgres?sslmode=require
+   ```
+   Example:
+   ```
+   postgresql://postgres.gbdobxuikwsovdsekpbl:mypassword@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?sslmode=require
+   ```
+4. If you still encounter IPv6 errors, verify `PG_IPV4_HOST` is set to the pooler hostname (e.g., `aws-1-ap-northeast-1.pooler.supabase.com`).
