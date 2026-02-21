@@ -39,3 +39,24 @@ If you prefer to isolate DB connectivity into a separate service, set:
 - `STORAGE_TOKEN` if your remote requires auth
 
 When enabled, the app uses an HTTP-based storage client instead of direct Postgres.
+
+## Two-Service Deployment (Main + API)
+This repo supports running both the main app and a separate API service on Render:
+
+- Main App (UI + WebSocket + routes): uses `npm start`
+- API Service (DB operations): uses `node dist/api.cjs`
+
+### Render Setup
+1. Create two Web Services from this repo.
+2. For the main app:
+   - Build: `npm install && npm run build`
+   - Start: `npm start`
+   - Env: `NODE_ENV=production`, `NPM_CONFIG_PRODUCTION=false`, plus session vars.
+3. For the API service:
+   - Build: `npm install && npm run build`
+   - Start: `node dist/api.cjs`
+   - Env: `NODE_ENV=production`, `NPM_CONFIG_PRODUCTION=false`, `DATABASE_URL` (with `?sslmode=require` if needed), `STORAGE_SERVER_TOKEN`, optional `API_CORS_ORIGIN`
+4. In the main app, set:
+   - `STORAGE_BACKEND=http`
+   - `STORAGE_BASE_URL=https://<your-api-service.onrender.com>`
+   - `STORAGE_TOKEN` to the same value as `STORAGE_SERVER_TOKEN`

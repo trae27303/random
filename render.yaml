@@ -17,3 +17,19 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+  - type: web
+    name: random-connect-api
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: node dist/api.cjs
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NPM_CONFIG_PRODUCTION
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: STORAGE_SERVER_TOKEN
+        sync: false
+      - key: API_CORS_ORIGIN
+        sync: false
