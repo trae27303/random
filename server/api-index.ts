@@ -153,8 +153,19 @@ app.post("/calls/:id/end", async (req, res, next) => {
 });
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ message: err?.message || "Internal Error" });
+  const errorDetails = {
+    message: err?.message || "Internal Error",
+    code: err?.code,
+    detail: err?.detail,
+    stack: process.env.NODE_ENV === "development" ? err?.stack : undefined,
+  };
+
+  console.error("[API Error]", {
+    ...errorDetails,
+    stack: err?.stack, // Always log stack to console
+  });
+
+  res.status(500).json({ message: errorDetails.message });
 });
 
 const port = parseInt(process.env.PORT || "5001", 10);

@@ -16,20 +16,32 @@ function buildPool() {
   let ssl: any = undefined;
   try {
     const url = new URL(process.env.DATABASE_URL);
-    // Optional override to force an IPv4 host if provider returns AAAA-only
-    if (process.env.PG_IPV4_HOST) {
-      url.hostname = process.env.PG_IPV4_HOST;
-      process.env.DATABASE_URL = url.toString();
-    }
+    const isSupabase = url.hostname.endsWith("supabase.co") || url.hostname.endsWith("supabase.com");
+
     const sslMode = url.searchParams.get("sslmode");
-    if (sslMode === "require" || url.hostname.endsWith("supabase.co")) {
+    if (sslMode === "require" || isSupabase) {
       ssl = { rejectUnauthorized: false };
     }
-  } catch {}
-  const lookup4 = ((hostname: string, _opts: any, cb: any) =>
-    dns.lookup(hostname, { family: 4, all: false }, cb)) as any;
-  const cfg: any = { connectionString: process.env.DATABASE_URL, ssl, lookup: lookup4 };
-  return new Pool(cfg);
+
+    const lookup4 = ((hostname: string, _opts: any, cb: any) => {
+      // If PG_IPV4_HOST is provided, use it to override the resolved IP
+      // while keeping the original hostname for SNI/routing.
+      if (process.env.PG_IPV4_HOST) {
+        return cb(null, [{ address: process.env.PG_IPV4_HOST, family: 4 }]);
+      }
+      return dns.lookup(hostname, { family: 4, all: false }, cb);
+    }) as any;
+
+    const cfg: any = {
+      connectionString: process.env.DATABASE_URL,
+      ssl,
+      lookup: lookup4
+    };
+    return new Pool(cfg);
+  } catch (err) {
+    console.error("[DB] Failed to initialize pool:", err);
+    return null;
+  }
 }
 
 export const pool = buildPool();
