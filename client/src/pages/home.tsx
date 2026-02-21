@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Video, Zap, Shield, Users, ArrowRight } from "lucide-react";
+import { Video, Zap, Shield, Users, ArrowRight, User as UserIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-// Static images
-// import heroImg from "@assets/hero.jpg"; // Not used, using gradients instead for cleaner look
+import { useAuth } from "@/hooks/use-auth";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Home() {
+  const { user, logoutMutation } = useAuth();
+  const [, setLocation] = useLocation();
+
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden selection:bg-primary/20">
       {/* Background Gradients */}
@@ -19,19 +21,59 @@ export default function Home() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Navigation */}
         <nav className="flex items-center justify-between py-6">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation("/")}>
             <div className="bg-primary p-2 rounded-lg">
               <Video className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold font-display tracking-tight">OmeClone</span>
+            <span className="text-xl font-bold font-display tracking-tight">Mitro</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              GitHub
-            </a>
-            <Button variant="outline" className="hidden sm:flex border-white/10 hover:bg-white/5">
-              Login
-            </Button>
+            {user ? (
+              <>
+                <div className="hidden sm:flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-full border border-white/10">
+                   <span className="font-bold text-primary">{user.tokens}</span>
+                   <span className="text-xs text-muted-foreground">Tokens</span>
+                </div>
+                <Link href="/models">
+                  <Button variant="ghost" className="hidden sm:flex hover:bg-white/5">Models</Button>
+                </Link>
+                {user.role === "model" && (
+                  <Link href="/dashboard">
+                    <Button variant="ghost" className="hidden sm:flex hover:bg-white/5">Dashboard</Button>
+                  </Link>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                      <UserIcon className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem className="sm:hidden">
+                       Tokens: {user.tokens}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLocation("/models")}>
+                      Browse Models
+                    </DropdownMenuItem>
+                    {user.role === "model" && (
+                      <DropdownMenuItem onClick={() => setLocation("/dashboard")}>
+                        Dashboard
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => logoutMutation.mutate()}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <Link href="/auth">
+                <Button variant="outline" className="hidden sm:flex border-white/10 hover:bg-white/5">
+                  Login / Register
+                </Button>
+              </Link>
+            )}
           </div>
         </nav>
 
@@ -77,12 +119,14 @@ export default function Home() {
           >
             <Link href="/video">
               <Button size="lg" className="h-14 px-8 text-lg rounded-full bg-primary hover:bg-primary/90 text-white font-bold shadow-[0_0_40px_-10px_rgba(124,58,237,0.5)] transition-all hover:scale-105 active:scale-95">
-                Start Chatting <ArrowRight className="ml-2 w-5 h-5" />
+                Start Random Chat <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full border-white/10 hover:bg-white/5 backdrop-blur-sm">
-              Learn More
-            </Button>
+            <Link href="/models">
+              <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full border-white/10 hover:bg-white/5 backdrop-blur-sm">
+                Browse Models
+              </Button>
+            </Link>
           </motion.div>
 
           {/* Features Grid */}
@@ -119,7 +163,7 @@ export default function Home() {
         </div>
 
         <footer className="mt-24 py-8 border-t border-white/5 text-center text-sm text-muted-foreground">
-          <p>© 2024 OmeClone. All rights reserved. Please follow community guidelines.</p>
+          <p>© 2026 Mitro. All rights reserved. Please follow community guidelines.</p>
         </footer>
       </div>
     </div>

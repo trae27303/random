@@ -13,6 +13,7 @@ interface ControlBarProps {
   isVideoOff: boolean;
   isChatOpen: boolean;
   disabled?: boolean;
+  showSkip?: boolean;
 }
 
 export function ControlBar({
@@ -24,7 +25,8 @@ export function ControlBar({
   isMuted,
   isVideoOff,
   isChatOpen,
-  disabled
+  disabled,
+  showSkip = true
 }: ControlBarProps) {
   return (
     <div className="flex items-center justify-center gap-4 p-4 glass-panel rounded-full mx-auto max-w-fit animate-in slide-in-from-bottom-10 fade-in duration-500">
@@ -66,23 +68,25 @@ export function ControlBar({
 
       <div className="w-px h-8 bg-white/10 mx-2" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="default"
-            size="lg"
-            onClick={onSkip}
-            disabled={disabled}
-            className="h-14 px-8 rounded-full bg-white text-black hover:bg-white/90 font-bold shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all duration-200"
-          >
-            <SkipForward className="h-5 w-5 mr-2" />
-            Skip
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Find Next Partner</TooltipContent>
-      </Tooltip>
+      {showSkip && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              size="lg"
+              onClick={onSkip}
+              disabled={disabled}
+              className="h-14 px-8 rounded-full bg-white text-black hover:bg-white/90 font-bold shadow-lg shadow-white/5 hover:scale-105 active:scale-95 transition-all duration-200"
+            >
+              <SkipForward className="h-5 w-5 mr-2" />
+              Skip
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Find Next Partner</TooltipContent>
+        </Tooltip>
+      )}
 
-      <div className="w-px h-8 bg-white/10 mx-2" />
+      {showSkip && <div className="w-px h-8 bg-white/10 mx-2" />}
 
       <Tooltip>
         <TooltipTrigger asChild>
