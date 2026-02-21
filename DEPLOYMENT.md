@@ -20,7 +20,7 @@ Add the following variables in Render:
 
 ## Database
 - Provision a Postgres instance in Render or another provider.
-- Set `DATABASE_URL` accordingly.
+- Set `DATABASE_URL` accordingly. For cloud DBs like Supabase, use `?sslmode=require`.
 - Run migrations when ready:
   - Open a Shell in the service and run: `npm run db:push`
 
