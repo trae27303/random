@@ -201,8 +201,16 @@ export class HttpStorage implements IStorage {
       
       if (!res.ok) {
         const text = await res.text();
-        console.error(`HttpStorage Error [${method} ${url}]: ${res.status} ${text}`);
-        throw new Error(`HttpStorage Error: ${res.status} ${text}`);
+        let message = text;
+        try {
+          const json = JSON.parse(text);
+          message = json.message || text;
+        } catch {
+          // Fallback to raw text
+        }
+
+        console.error(`HttpStorage Error [${method} ${url}]: ${res.status} ${message}`);
+        throw new Error(message);
       }
 
       if (res.status === 204) return undefined as unknown as T;
