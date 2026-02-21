@@ -23,6 +23,8 @@ services:
          sync: false
        - key: STORAGE_TOKEN
          sync: false
+       - key: PG_IPV4_HOST
+         sync: false
   - type: web
     name: random-connect-api
     env: node
@@ -38,4 +40,6 @@ services:
       - key: STORAGE_SERVER_TOKEN
         sync: false
       - key: API_CORS_ORIGIN
+        sync: false
+      - key: PG_IPV4_HOST
         sync: false

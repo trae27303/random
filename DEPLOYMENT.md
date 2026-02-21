@@ -20,6 +20,7 @@ Add the following variables in Render:
 - `STORAGE_BACKEND` (optional: set to `http` to use a remote storage service)
 - `STORAGE_BASE_URL` (required if STORAGE_BACKEND=`http`)
 - `STORAGE_TOKEN` (optional bearer for the remote storage service)
+- `PG_IPV4_HOST` (optional: force IPv4 host for DATABASE_URL)
 
 ## Database
 - Provision a Postgres instance in Render or another provider.
@@ -60,6 +61,12 @@ This repo supports running both the main app and a separate API service on Rende
    - `STORAGE_BACKEND=http`
    - `STORAGE_BASE_URL=https://<your-api-service.onrender.com>`
    - `STORAGE_TOKEN` to the same value as `STORAGE_SERVER_TOKEN`
+
+### IPv6 Connectivity Issues
+If you still see ENETUNREACH to an IPv6 address:
+- Ensure your `DATABASE_URL` hostname has IPv4 (A) records.
+- If your provider returns only IPv6 (AAAA), set `PG_IPV4_HOST` to an IPv4-capable hostname or IP for your database. The server will rewrite the host in `DATABASE_URL` at boot.
+- Keep `?sslmode=require`; certificate verification is relaxed by default for cloud DBs.
 
 ### Generate a Secure Server Token
 Use any of the following to create a strong token. Store it in Render env as `STORAGE_SERVER_TOKEN` and in the main app as `STORAGE_TOKEN`.

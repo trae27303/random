@@ -16,6 +16,11 @@ function buildPool() {
   let ssl: any = undefined;
   try {
     const url = new URL(process.env.DATABASE_URL);
+    // Optional override to force an IPv4 host if provider returns AAAA-only
+    if (process.env.PG_IPV4_HOST) {
+      url.hostname = process.env.PG_IPV4_HOST;
+      process.env.DATABASE_URL = url.toString();
+    }
     const sslMode = url.searchParams.get("sslmode");
     if (sslMode === "require" || url.hostname.endsWith("supabase.co")) {
       ssl = { rejectUnauthorized: false };
