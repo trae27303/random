@@ -176,4 +176,64 @@ export class MemoryStorage implements IStorage {
   }
 }
 
-export const storage = db ? new DatabaseStorage() : new MemoryStorage();
+class HttpStorage implements IStorage {
+  private base: string;
+  private headers: Record<string, string>;
+  constructor(baseUrl: string, authToken?: string) {
+    this.base = baseUrl.replace(/\/+$/, "");
+    this.headers = { "Content-Type": "application/json" };
+    if (authToken) this.headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  private async req<T>(method: string, path: string, body?: any): Promise<T> {
+    const res = await fetch(`${this.base}${path}`, {
+      method,
+      headers: this.headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`${res.status}: ${text}`);
+    }
+    if (res.status === 204) return undefined as unknown as T;
+    return (await res.json()) as T;
+  }
+  async createReport(report: InsertReport): Promise<Report> {
+    return this.req<Report>("POST", "/reports", report);
+  }
+  async getUser(id: number): Promise<User | undefined> {
+    return this.req<User>("GET", `/users/${id}`);
+  }
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.req<User>("GET", `/users/by-username/${encodeURIComponent(username)}`);
+  }
+  async createUser(user: InsertUser): Promise<User> {
+    return this.req<User>("POST", `/users`, user);
+  }
+  async updateUserTokens(id: number, tokens: number): Promise<User> {
+    return this.req<User>("PATCH", `/users/${id}/tokens`, { tokens });
+  }
+  async getModels(): Promise<User[]> {
+    return this.req<User[]>("GET", `/models`);
+  }
+  async createCall(call: InsertCall): Promise<Call> {
+    return this.req<Call>("POST", `/calls`, call);
+  }
+  async getCall(id: number): Promise<Call | undefined> {
+    return this.req<Call>("GET", `/calls/${id}`);
+  }
+  async updateCallStatus(id: number, status: "pending" | "accepted" | "rejected" | "active" | "completed" | "expired"): Promise<Call> {
+    return this.req<Call>("PATCH", `/calls/${id}/status`, { status });
+  }
+  async endCall(id: number, endTime: Date, totalCost: number): Promise<Call> {
+    return this.req<Call>("POST", `/calls/${id}/end`, { endTime, totalCost });
+  }
+}
+
+const storageBackend = process.env.STORAGE_BACKEND;
+const storageBaseUrl = process.env.STORAGE_BASE_URL;
+export const storage: IStorage =
+  storageBackend === "http" && storageBaseUrl
+    ? new HttpStorage(storageBaseUrl, process.env.STORAGE_TOKEN)
+    : db
+    ? new DatabaseStorage()
+    : new MemoryStorage();
