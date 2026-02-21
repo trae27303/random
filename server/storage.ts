@@ -176,54 +176,95 @@ export class MemoryStorage implements IStorage {
   }
 }
 
-class HttpStorage implements IStorage {
+export class HttpStorage implements IStorage {
   private base: string;
   private headers: Record<string, string>;
+
   constructor(baseUrl: string, authToken?: string) {
     this.base = baseUrl.replace(/\/+$/, "");
-    this.headers = { "Content-Type": "application/json" };
-    if (authToken) this.headers["Authorization"] = `Bearer ${authToken}`;
+    this.headers = { 
+      "Content-Type": "application/json",
+      ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {})
+    };
   }
+
   private async req<T>(method: string, path: string, body?: any): Promise<T> {
-    const res = await fetch(`${this.base}${path}`, {
+    const url = `${this.base}${path}`;
+    const options: RequestInit = {
       method,
       headers: this.headers,
       body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`${res.status}: ${text}`);
+    };
+
+    try {
+      const res = await fetch(url, options);
+      
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`HttpStorage Error [${method} ${url}]: ${res.status} ${text}`);
+        throw new Error(`HttpStorage Error: ${res.status} ${text}`);
+      }
+
+      if (res.status === 204) return undefined as unknown as T;
+      return (await res.json()) as T;
+    } catch (err) {
+      console.error(`HttpStorage Request Failed [${method} ${url}]:`, err);
+      throw err;
     }
-    if (res.status === 204) return undefined as unknown as T;
-    return (await res.json()) as T;
   }
+
   async createReport(report: InsertReport): Promise<Report> {
     return this.req<Report>("POST", "/reports", report);
   }
+
   async getUser(id: number): Promise<User | undefined> {
-    return this.req<User>("GET", `/users/${id}`);
+    try {
+      return await this.req<User>("GET", `/users/${id}`);
+    } catch (err) {
+      // 404 is valid for getUser if not found
+      if (err instanceof Error && err.message.includes("404")) return undefined;
+      throw err;
+    }
   }
+
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return this.req<User>("GET", `/users/by-username/${encodeURIComponent(username)}`);
+    try {
+      return await this.req<User>("GET", `/users/by-username/${encodeURIComponent(username)}`);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("404")) return undefined;
+      throw err;
+    }
   }
+
   async createUser(user: InsertUser): Promise<User> {
     return this.req<User>("POST", `/users`, user);
   }
+
   async updateUserTokens(id: number, tokens: number): Promise<User> {
     return this.req<User>("PATCH", `/users/${id}/tokens`, { tokens });
   }
+
   async getModels(): Promise<User[]> {
     return this.req<User[]>("GET", `/models`);
   }
+
   async createCall(call: InsertCall): Promise<Call> {
     return this.req<Call>("POST", `/calls`, call);
   }
+
   async getCall(id: number): Promise<Call | undefined> {
-    return this.req<Call>("GET", `/calls/${id}`);
+    try {
+      return await this.req<Call>("GET", `/calls/${id}`);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("404")) return undefined;
+      throw err;
+    }
   }
+
   async updateCallStatus(id: number, status: "pending" | "accepted" | "rejected" | "active" | "completed" | "expired"): Promise<Call> {
     return this.req<Call>("PATCH", `/calls/${id}/status`, { status });
   }
+
   async endCall(id: number, endTime: Date, totalCost: number): Promise<Call> {
     return this.req<Call>("POST", `/calls/${id}/end`, { endTime, totalCost });
   }
@@ -231,6 +272,12 @@ class HttpStorage implements IStorage {
 
 const storageBackend = process.env.STORAGE_BACKEND;
 const storageBaseUrl = process.env.STORAGE_BASE_URL;
+
+console.log(`[Storage] Initializing storage backend: ${storageBackend || "default (db/memory)"}`);
+if (storageBackend === "http") {
+  console.log(`[Storage] Using HttpStorage with Base URL: ${storageBaseUrl}`);
+}
+
 export const storage: IStorage =
   storageBackend === "http" && storageBaseUrl
     ? new HttpStorage(storageBaseUrl, process.env.STORAGE_TOKEN)
