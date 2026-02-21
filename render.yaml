@@ -17,6 +17,12 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+       - key: STORAGE_BACKEND
+         sync: false
+       - key: STORAGE_BASE_URL
+         sync: false
+       - key: STORAGE_TOKEN
+         sync: false
   - type: web
     name: random-connect-api
     env: node

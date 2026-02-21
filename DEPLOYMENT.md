@@ -60,3 +60,24 @@ This repo supports running both the main app and a separate API service on Rende
    - `STORAGE_BACKEND=http`
    - `STORAGE_BASE_URL=https://<your-api-service.onrender.com>`
    - `STORAGE_TOKEN` to the same value as `STORAGE_SERVER_TOKEN`
+
+### Generate a Secure Server Token
+Use any of the following to create a strong token. Store it in Render env as `STORAGE_SERVER_TOKEN` and in the main app as `STORAGE_TOKEN`.
+
+- Node (cross-platform):
+
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+
+- PowerShell:
+
+  ```powershell
+  [BitConverter]::ToString((New-Object Byte[] 32 | %{$_=0}) | %{[byte](Get-Random -Minimum 0 -Maximum 256)}).Replace('-', '').ToLower()
+  ```
+
+- Linux/macOS:
+
+  ```bash
+  openssl rand -hex 32
+  ```
