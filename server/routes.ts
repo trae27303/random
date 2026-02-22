@@ -84,8 +84,26 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.json(req.user);
+  app.post("/api/login", (req, res, next) => {
+    console.log(`[Auth] Login attempt for user: ${req.body.username}`);
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        console.error(`[Auth] Login error for ${req.body.username}:`, err);
+        return next(err);
+      }
+      if (!user) {
+        console.warn(`[Auth] Login failed for ${req.body.username}: ${info?.message || "Unknown error"}`);
+        return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+      req.login(user, (err) => {
+        if (err) {
+          console.error(`[Auth] Session login error for ${req.body.username}:`, err);
+          return next(err);
+        }
+        console.log(`[Auth] Login successful for ${req.body.username}`);
+        res.json(user);
+      });
+    })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
