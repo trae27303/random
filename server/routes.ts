@@ -34,7 +34,12 @@ export async function registerRoutes(
     secret: process.env.SESSION_SECRET || "change-me",
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 86400000 } // 1 day
+    proxy: true,
+    cookie: {
+      maxAge: 86400000,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax"
+    }
   });
 
   app.use(sessionMiddleware);
@@ -114,7 +119,10 @@ export async function registerRoutes(
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    console.log(`[Auth] GET /api/user - Authenticated: ${req.isAuthenticated()}, SessionID: ${req.sessionID}`);
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
     res.json(req.user);
   });
 
