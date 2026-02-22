@@ -12,7 +12,10 @@ if ((dns as any).setDefaultResultOrder) {
 }
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || true,
+  credentials: true,
+}));
 const httpServer = createServer(app);
 
 declare module "http" {
