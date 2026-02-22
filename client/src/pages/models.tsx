@@ -15,6 +15,7 @@ export default function ModelsPage() {
   const [, setLocation] = useLocation();
   const { data: models, isLoading } = useQuery<User[]>({
     queryKey: ["/api/models"],
+    refetchInterval: 5000,
   });
 
   const handleCall = (modelId: number) => {
@@ -68,7 +69,13 @@ export default function ModelsPage() {
               </div>
               <CardHeader>
                 <CardTitle className="flex justify-between items-center">
-                  <span>{model.username}</span>
+                  <span className="flex items-center gap-2">
+                    {model.username}
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${model.isOnline ? "bg-green-500/20 text-green-500" : "bg-gray-500/20 text-gray-400"}`}>
+                      <span className={`w-2 h-2 rounded-full ${model.isOnline ? "bg-green-500" : "bg-gray-400"}`} />
+                      {model.isOnline ? "Online" : "Offline"}
+                    </span>
+                  </span>
                   <div className="flex items-center text-yellow-500 text-sm">
                     <Star className="w-4 h-4 fill-current mr-1" />
                     <span>5.0</span>
@@ -81,9 +88,9 @@ export default function ModelsPage() {
                 </p>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={() => handleCall(model.id)}>
+                <Button className="w-full" onClick={() => handleCall(model.id)} disabled={!model.isOnline}>
                   <Phone className="w-4 h-4 mr-2" />
-                  Video Call
+                  {model.isOnline ? "Video Call" : "Offline"}
                 </Button>
               </CardFooter>
             </Card>

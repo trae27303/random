@@ -4,9 +4,9 @@ import * as schema from "@shared/schema";
 import dns from "dns";
 
 // Force IPv4 for all DNS lookups to avoid Render -> Supabase connection issues
-if ((dns as any).setDefaultResultOrder) {
-  (dns as any).setDefaultResultOrder("ipv4first");
-}
+// if ((dns as any).setDefaultResultOrder) {
+//   (dns as any).setDefaultResultOrder("ipv4first");
+// }
 
 if (!process.env.DATABASE_URL) {
   console.warn(
@@ -58,14 +58,18 @@ export const db = client ? drizzle(client, { schema }) : null;
 
 // Perform a simple health check query at startup
 if (client) {
-  client`SELECT 1`
-    .then(() => {
-      console.log("[DB] Database connection health check successful (SELECT 1)");
-    })
-    .catch((err) => {
-      console.error("[DB] Database connection health check failed:", err.message);
-      if (err.message.includes("tenant") || err.message.includes("user")) {
-        console.error("[DB] HINT: The 'tenant or user not found' error often indicates an SNI mismatch or an incorrect project-ref in the hostname.");
-      }
-    });
+  // Use setTimeout to avoid blocking server startup
+  setTimeout(() => {
+    client`SELECT 1`
+      .then(() => {
+        console.log("[DB] Database connection health check successful (SELECT 1)");
+      })
+      .catch((err) => {
+        console.error("[DB] Database connection health check failed:", err.message);
+        if (err.message.includes("tenant") || err.message.includes("user")) {
+          console.error("[DB] HINT: The 'tenant or user not found' error often indicates an SNI mismatch or an incorrect project-ref in the hostname.");
+        }
+        // Don't crash the server on health check failure - just log it
+      });
+  }, 2000); // Wait 2 seconds before health check to allow connection to establish
 }

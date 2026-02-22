@@ -6,10 +6,10 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import dns from "dns";
 
-if ((dns as any).setDefaultResultOrder) {
-  (dns as any).setDefaultResultOrder("ipv4first");
-  console.log("[System] DNS result order set to ipv4first");
-}
+// if ((dns as any).setDefaultResultOrder) {
+//   (dns as any).setDefaultResultOrder("ipv4first");
+//   console.log("[System] DNS result order set to ipv4first");
+// }
 
 const app = express();
 app.use(cors());

@@ -100,6 +100,18 @@ app.patch("/users/:id/tokens", async (req, res, next) => {
   }
 });
 
+app.patch("/users/:id/online", async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    const isOnline = Boolean(req.body.isOnline);
+    const [updated] = await db.update(users).set({ isOnline }).where(eq(users.id, id)).returning();
+    if (!updated) return res.status(404).json({ message: "Not found" });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get("/models", async (_req, res, next) => {
   try {
     const rows = await db.select().from(users).where(eq(users.role, "model"));

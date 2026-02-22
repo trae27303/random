@@ -229,7 +229,7 @@ export async function registerRoutes(
 
     if (user) {
       userSockets.set(user.id, ws);
-      // Mark as online?
+      storage.updateUserOnline(user.id, true).catch(() => {});
     }
 
     ws.on("message", async (data) => {
@@ -431,7 +431,7 @@ export async function registerRoutes(
       unmatch(ws);
       if (user) {
         userSockets.delete(user.id);
-        // Clean up active calls? Maybe logic to end them if user disconnects?
+        storage.updateUserOnline(user.id, false).catch(() => {});
       }
     });
 
@@ -440,6 +440,7 @@ export async function registerRoutes(
       unmatch(ws);
       if (user) {
         userSockets.delete(user.id);
+        storage.updateUserOnline(user.id, false).catch(() => {});
       }
     });
   });

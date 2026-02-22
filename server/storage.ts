@@ -11,6 +11,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUserTokens(id: number, tokens: number): Promise<User>;
   getModels(): Promise<User[]>;
+  updateUserOnline(id: number, isOnline: boolean): Promise<User>;
 
   // Call Management
   createCall(call: InsertCall): Promise<Call>;
@@ -56,6 +57,15 @@ export class DatabaseStorage implements IStorage {
   async getModels(): Promise<User[]> {
     if (!db) throw new Error("Database not initialized");
     return await db.select().from(users).where(eq(users.role, "model"));
+  }
+
+  async updateUserOnline(id: number, isOnline: boolean): Promise<User> {
+    if (!db) throw new Error("Database not initialized");
+    const [updated] = await db.update(users)
+      .set({ isOnline })
+      .where(eq(users.id, id))
+      .returning();
+    return updated;
   }
 
   async createCall(call: InsertCall): Promise<Call> {
@@ -138,6 +148,13 @@ export class MemoryStorage implements IStorage {
 
   async getModels(): Promise<User[]> {
     return this.users.filter((u) => u.role === "model");
+  }
+
+  async updateUserOnline(id: number, isOnline: boolean): Promise<User> {
+    const user = this.users.find((u) => u.id === id);
+    if (!user) throw new Error("User not found");
+    user.isOnline = isOnline;
+    return user;
   }
 
   async createCall(call: InsertCall): Promise<Call> {
@@ -254,6 +271,10 @@ export class HttpStorage implements IStorage {
 
   async getModels(): Promise<User[]> {
     return this.req<User[]>("GET", `/models`);
+  }
+
+  async updateUserOnline(id: number, isOnline: boolean): Promise<User> {
+    return this.req<User>("PATCH", `/users/${id}/online`, { isOnline });
   }
 
   async createCall(call: InsertCall): Promise<Call> {

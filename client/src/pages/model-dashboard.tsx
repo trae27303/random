@@ -35,6 +35,27 @@ export default function ModelDashboard() {
           </div>
         ),
       });
+      if ("Notification" in window) {
+        if (Notification.permission === "granted") {
+          const n = new Notification("Incoming Call", {
+            body: `${incomingCall.callerName} is calling you`,
+          });
+          n.onclick = () => {
+            window.focus();
+          };
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((perm) => {
+            if (perm === "granted") {
+              const n = new Notification("Incoming Call", {
+                body: `${incomingCall.callerName} is calling you`,
+              });
+              n.onclick = () => {
+                window.focus();
+              };
+            }
+          });
+        }
+      }
     } else {
       ringtoneRef.current?.pause();
       if (ringtoneRef.current) ringtoneRef.current.currentTime = 0;
@@ -93,6 +114,28 @@ export default function ModelDashboard() {
                 <p>You are earning 5 tokens per minute.</p>
                 <Button variant="destructive" className="mt-4" onClick={endCall}>End Call</Button>
             </div>
+        )}
+
+        {incomingCall && callState !== "connected" && (
+          <div className="mt-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Incoming Call</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold">{incomingCall.callerName}</div>
+                    <div className="text-sm text-muted-foreground">wants to start a call</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={() => { acceptCall(incomingCall.callId); ringtoneRef.current?.pause(); }}>Accept</Button>
+                    <Button variant="destructive" onClick={() => { rejectCall(incomingCall.callId); ringtoneRef.current?.pause(); }}>Reject</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
