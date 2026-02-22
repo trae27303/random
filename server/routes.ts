@@ -37,9 +37,8 @@ export async function registerRoutes(
     proxy: true, // Required for secure cookies behind Render's proxy
     cookie: {
       maxAge: 86400000, // 1 day
-      sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
+      sameSite: "lax"
     }
   });
 
@@ -155,9 +154,9 @@ export async function registerRoutes(
   });
 
   app.post("/api/models/join", async (req, res) => {
-    // TODO: Add logic to upgrade user to model if needed
-    // For now, role is set at registration
-    res.status(501).json({ message: "Not implemented yet" });
+     // TODO: Add logic to upgrade user to model if needed
+     // For now, role is set at registration
+     res.status(501).json({ message: "Not implemented yet" });
   });
 
   // --- EXISTING ROUTES ---
@@ -188,7 +187,7 @@ export async function registerRoutes(
         // @ts-ignore
         passport.session()(request, {} as any, () => {
           wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request);
+             wss.emit('connection', ws, request);
           });
         });
       });
