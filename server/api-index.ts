@@ -1,5 +1,6 @@
 import "dotenv/config";
 import dns from "dns";
+
 // Force IPv4 for all DNS lookups to avoid Render -> Supabase connection issues
 if ((dns as any).setDefaultResultOrder) {
   (dns as any).setDefaultResultOrder("ipv4first");
@@ -12,7 +13,7 @@ import { eq } from "drizzle-orm";
 import cors from "cors";
 
 if (!rawDb) {
-  console.error("DATABASE_URL is required for API service");
+  console.error("[API] DATABASE_URL is required for API service");
   process.exit(1);
 }
 const db = rawDb!;
@@ -176,5 +177,5 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 const port = parseInt(process.env.PORT || "5001", 10);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`api listening on ${port}`);
+  console.log(`[API] Storage service listening on port ${port}`);
 });

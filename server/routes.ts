@@ -34,9 +34,9 @@ export async function registerRoutes(
     secret: process.env.SESSION_SECRET || "change-me",
     resave: false,
     saveUninitialized: false,
-    proxy: true,
+    proxy: true, // Required for secure cookies behind Render's proxy
     cookie: {
-      maxAge: 86400000,
+      maxAge: 86400000, // 1 day
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax"
     }
@@ -48,22 +48,36 @@ export async function registerRoutes(
 
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
+      console.log(`[Auth] Attempting login for: ${username}`);
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) { // Plain text for simplicity as requested, in prod use bcrypt
+      if (!user) {
+        console.warn(`[Auth] User not found: ${username}`);
         return done(null, false, { message: "Invalid credentials" });
       }
+      if (user.password !== password) { // Plain text for simplicity as requested, in prod use bcrypt
+        console.warn(`[Auth] Password mismatch for: ${username}`);
+        return done(null, false, { message: "Invalid credentials" });
+      }
+      console.log(`[Auth] Login successful for: ${username} (ID: ${user.id})`);
       return done(null, user);
     } catch (err) {
+      console.error(`[Auth] Database error during login for ${username}:`, err);
       return done(err);
     }
   }));
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log(`[Auth] Serializing user ID: ${user.id}`);
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      if (!user) console.warn(`[Auth] Failed to deserialize user ID: ${id}`);
       done(null, user);
     } catch (err) {
+      console.error(`[Auth] Error deserializing user ID: ${id}`, err);
       done(err);
     }
   });
@@ -72,6 +86,7 @@ export async function registerRoutes(
   app.post("/api/register", async (req, res, next) => {
     try {
       const data = insertUserSchema.parse(req.body);
+      console.log(`[Auth] Registering new user: ${data.username}`);
       const existing = await storage.getUserByUsername(data.username);
       if (existing) {
         return res.status(400).json({ message: "Username already exists" });
@@ -90,39 +105,31 @@ export async function registerRoutes(
   });
 
   app.post("/api/login", (req, res, next) => {
-    console.log(`[Auth] Login attempt for user: ${req.body.username}`);
     passport.authenticate("local", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error(`[Auth] Login error for ${req.body.username}:`, err);
-        return next(err);
-      }
-      if (!user) {
-        console.warn(`[Auth] Login failed for ${req.body.username}: ${info?.message || "Unknown error"}`);
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
-      }
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ message: info?.message || "Login failed" });
+
       req.login(user, (err) => {
-        if (err) {
-          console.error(`[Auth] Session login error for ${req.body.username}:`, err);
-          return next(err);
-        }
-        console.log(`[Auth] Login successful for ${req.body.username}`);
+        if (err) return next(err);
+        console.log(`[Auth] Session established for user: ${user.username}, SessionID: ${req.sessionID}`);
         res.json(user);
       });
     })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const username = req.user?.username;
     req.logout((err) => {
       if (err) return next(err);
+      console.log(`[Auth] Logged out user: ${username}`);
       res.json({ message: "Logged out" });
     });
   });
 
   app.get("/api/user", (req, res) => {
-    console.log(`[Auth] GET /api/user - Authenticated: ${req.isAuthenticated()}, SessionID: ${req.sessionID}`);
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
-    }
+    const isAuth = req.isAuthenticated();
+    console.log(`[Auth] GET /api/user - Authenticated: ${isAuth}, SessionID: ${req.sessionID}, UserID: ${req.user?.id || 'none'}`);
+    if (!isAuth) return res.status(401).json({ message: "Not authenticated" });
     res.json(req.user);
   });
 
