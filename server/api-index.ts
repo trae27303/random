@@ -1,4 +1,10 @@
 import "dotenv/config";
+import dns from "dns";
+// Force IPv4 for all DNS lookups to avoid Render -> Supabase connection issues
+if ((dns as any).setDefaultResultOrder) {
+  (dns as any).setDefaultResultOrder("ipv4first");
+}
+
 import express from "express";
 import { db as rawDb } from "./db";
 import { reports, users, calls, type InsertReport, type InsertUser, type InsertCall } from "@shared/schema";
