@@ -37,8 +37,9 @@ export async function registerRoutes(
     proxy: true, // Required for secure cookies behind Render's proxy
     cookie: {
       maxAge: 86400000, // 1 day
+      sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax"
+      httpOnly: true,
     }
   });
 
@@ -154,9 +155,9 @@ export async function registerRoutes(
   });
 
   app.post("/api/models/join", async (req, res) => {
-     // TODO: Add logic to upgrade user to model if needed
-     // For now, role is set at registration
-     res.status(501).json({ message: "Not implemented yet" });
+    // TODO: Add logic to upgrade user to model if needed
+    // For now, role is set at registration
+    res.status(501).json({ message: "Not implemented yet" });
   });
 
   // --- EXISTING ROUTES ---
@@ -187,7 +188,7 @@ export async function registerRoutes(
         // @ts-ignore
         passport.session()(request, {} as any, () => {
           wss.handleUpgrade(request, socket, head, (ws) => {
-             wss.emit('connection', ws, request);
+            wss.emit('connection', ws, request);
           });
         });
       });
@@ -195,7 +196,7 @@ export async function registerRoutes(
   });
 
   let activeUsersCount = 0;
-  
+
   // Random Chat Queues
   let waitingUsers: WebSocket[] = [];
   const activeMatches = new Map<WebSocket, WebSocket>();
@@ -226,7 +227,7 @@ export async function registerRoutes(
   wss.on("connection", (ws, req: any) => {
     activeUsersCount++;
     const user = req.user as Express.User | undefined;
-    
+
     if (user) {
       userSockets.set(user.id, ws);
       // Mark as online?
@@ -302,7 +303,7 @@ export async function registerRoutes(
             if (!user) return;
             const modelId = message.modelId;
             const modelWs = userSockets.get(modelId);
-            
+
             // Check tokens
             const currentUser = await storage.getUser(user.id);
             if (!currentUser || currentUser.tokens < 20) {
@@ -323,11 +324,11 @@ export async function registerRoutes(
             });
 
             // Notify Model
-            sendMessage(modelWs, { 
-              type: "incoming_call", 
-              callId: call.id, 
-              callerId: user.id, 
-              callerName: user.username 
+            sendMessage(modelWs, {
+              type: "incoming_call",
+              callId: call.id,
+              callerId: user.id,
+              callerName: user.username
             });
             break;
           }
@@ -342,7 +343,7 @@ export async function registerRoutes(
             // Requirement: "token start consume after they got connected"
             // For simplicity, we assume "accept" = connected start. 
             // Ideally we wait for ICE connection state, but that's complex.
-            
+
             const callerWs = userSockets.get(call.callerId);
             if (callerWs) {
               sendMessage(callerWs, { type: "call_accepted", callId: call.id, modelId: user.id });
@@ -402,14 +403,14 @@ export async function registerRoutes(
           case "end_call": {
             const call = await storage.getCall(message.callId);
             if (!call) return;
-            
+
             // Cleanup
             const timer = activeCalls.get(call.id);
             if (timer) {
               clearInterval(timer);
               activeCalls.delete(call.id);
             }
-            
+
             await storage.endCall(call.id, new Date(), call.totalCost || 0);
 
             const otherId = user?.id === call.callerId ? call.modelId : call.callerId;
@@ -434,7 +435,7 @@ export async function registerRoutes(
         // Clean up active calls? Maybe logic to end them if user disconnects?
       }
     });
-    
+
     ws.on("error", () => {
       removeFromWaiting(ws);
       unmatch(ws);
