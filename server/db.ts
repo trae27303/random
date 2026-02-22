@@ -69,12 +69,11 @@ function buildPool() {
       connectionString: process.env.DATABASE_URL,
       ssl,
       lookup: lookup4,
-      connectionTimeoutMillis: 15000, // Slightly longer for cloud environments
+      connectionTimeoutMillis: 15000,
       idleTimeoutMillis: 30000,
-      max: 10 // Reasonable pool size
+      max: 10
     };
 
-    console.log(`[DB] Pool initialized with SNI servername: ${ssl?.servername || "none"}`);
     return new Pool(cfg);
   } catch (err) {
     console.error("[DB] Failed to parse DATABASE_URL or initialize pool:", err);
@@ -84,3 +83,17 @@ function buildPool() {
 
 export const pool = buildPool();
 export const db = pool ? drizzle(pool, { schema }) : null;
+
+// Perform a simple health check query at startup
+if (pool) {
+  pool.query('SELECT 1')
+    .then(() => {
+      console.log("[DB] Database connection health check successful (SELECT 1)");
+    })
+    .catch((err) => {
+      console.error("[DB] Database connection health check failed:", err.message);
+      if (err.message.includes("tenant") || err.message.includes("user")) {
+        console.error("[DB] HINT: The 'tenant or user not found' error often indicates an SNI mismatch or an incorrect project-ref in the hostname.");
+      }
+    });
+}

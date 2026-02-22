@@ -73,8 +73,12 @@ export async function registerRoutes(
 
   passport.deserializeUser(async (id: number, done) => {
     try {
+      // Robust deserialization: if user is not found, return false to clear the session
       const user = await storage.getUser(id);
-      if (!user) console.warn(`[Auth] Failed to deserialize user ID: ${id}`);
+      if (!user) {
+        console.warn(`[Auth] Session user not found (ID: ${id}). Clearing session.`);
+        return done(null, false);
+      }
       done(null, user);
     } catch (err) {
       console.error(`[Auth] Error deserializing user ID: ${id}`, err);
