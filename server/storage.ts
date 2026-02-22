@@ -283,8 +283,7 @@ const storageBaseUrl = process.env.STORAGE_BASE_URL;
 
 // Prioritize DatabaseStorage if DATABASE_URL is present, unless HTTP is explicitly requested and configured.
 const isHttp = storageBackend === "http" && !!storageBaseUrl;
-
-let _storage: IStorage;
+let storageInstance: IStorage;
 
 if (isHttp) {
   console.log(`[Storage] Selected: HttpStorage (Target: ${storageBaseUrl})`);
@@ -301,33 +300,4 @@ if (isHttp) {
   storageInstance = new MemoryStorage();
 }
 
-// Mutable export so initStorage() can swap the backend at runtime
-export let storage: IStorage = _storage;
-
-/**
- * Async health check — call at server startup before handling requests.
- * If HttpStorage API is unreachable/broken, falls back to MemoryStorage.
- */
-export async function initStorage(): Promise<void> {
-  if (!isHttp) return;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch(`${storageBaseUrl}/healthz`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      throw new Error(`Health check returned ${res.status}`);
-    }
-    console.log("[Storage] ✓ HttpStorage health check passed");
-  } catch (err: any) {
-    console.error(`[Storage] ✗ HttpStorage health check FAILED: ${err.message}`);
-    console.warn("[Storage] ⚠ Falling back to MemoryStorage (data will not persist across restarts)");
-    _storage = new MemoryStorage();
-    storage = _storage;
-  }
-}
+export const storage = storageInstance;
