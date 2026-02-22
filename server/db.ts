@@ -31,8 +31,11 @@ function buildPool() {
     let ssl: any = undefined;
     const sslMode = url.searchParams.get("sslmode");
     if (sslMode === "require" || isSupabase) {
-      ssl = { rejectUnauthorized: false };
-      console.log(`[DB] SSL enabled for ${hostname} (rejectUnauthorized: false)`);
+      ssl = {
+        rejectUnauthorized: false,
+        servername: hostname // Explicitly set for SNI to resolve "tenant not found" issues
+      };
+      console.log(`[DB] SSL enabled for ${hostname} (rejectUnauthorized: false, servername: ${hostname})`);
     }
 
     const lookup4 = (targetHostname: string, opts: any, cb: any) => {
