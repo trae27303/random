@@ -12,6 +12,7 @@ if ((dns as any).setDefaultResultOrder) {
 }
 
 const app = express();
+app.set("trust proxy", 1); // Trust first proxy (Render) — required for secure cookies behind reverse proxy
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
   credentials: true,
@@ -71,7 +72,12 @@ app.use((req, res, next) => {
   next();
 });
 
+import { initStorage } from "./storage";
+
 (async () => {
+  // Verify storage backend is healthy; falls back to MemoryStorage if HttpStorage API is down
+  await initStorage();
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
