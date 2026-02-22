@@ -287,14 +287,18 @@ const isHttp = storageBackend === "http" && !!storageBaseUrl;
 let _storage: IStorage;
 
 if (isHttp) {
-  console.log(`[Storage] Using HttpStorage (Target: ${storageBaseUrl})`);
-  _storage = new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN);
+  console.log(`[Storage] Selected: HttpStorage (Target: ${storageBaseUrl})`);
+  storageInstance = new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN);
 } else if (db) {
-  console.log(`[Storage] Using DatabaseStorage (Direct SQL)`);
-  _storage = new DatabaseStorage();
+  console.log(`[Storage] Selected: DatabaseStorage (Direct SQL Connection)`);
+  storageInstance = new DatabaseStorage();
 } else {
-  console.warn(`[Storage] DATABASE_URL missing and HTTP storage not configured. Using MemoryStorage (Volatile).`);
-  _storage = new MemoryStorage();
+  if (process.env.DATABASE_URL) {
+    console.error(`[Storage] CRITICAL: DATABASE_URL is set but database pool failed to initialize. Falling back to MemoryStorage.`);
+  } else {
+    console.warn(`[Storage] Selected: MemoryStorage (DATABASE_URL missing and HTTP storage not configured)`);
+  }
+  storageInstance = new MemoryStorage();
 }
 
 // Mutable export so initStorage() can swap the backend at runtime
