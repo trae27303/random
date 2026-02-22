@@ -281,15 +281,19 @@ export class HttpStorage implements IStorage {
 const storageBackend = process.env.STORAGE_BACKEND;
 const storageBaseUrl = process.env.STORAGE_BASE_URL;
 
+// Prioritize DatabaseStorage if DATABASE_URL is present, unless HTTP is explicitly requested and configured.
 const isHttp = storageBackend === "http" && !!storageBaseUrl;
-console.log(`[Storage] Initializing storage backend: ${isHttp ? "http" : (db ? "database" : "memory")}`);
+let storageInstance: IStorage;
+
 if (isHttp) {
-  console.log(`[Storage] Using HttpStorage with Base URL: ${storageBaseUrl}`);
+  console.log(`[Storage] Using HttpStorage (Target: ${storageBaseUrl})`);
+  storageInstance = new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN);
+} else if (db) {
+  console.log(`[Storage] Using DatabaseStorage (Direct SQL)`);
+  storageInstance = new DatabaseStorage();
+} else {
+  console.warn(`[Storage] DATABASE_URL missing and HTTP storage not configured. Using MemoryStorage (Volatile).`);
+  storageInstance = new MemoryStorage();
 }
 
-export const storage: IStorage =
-  isHttp
-    ? new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN)
-    : db
-    ? new DatabaseStorage()
-    : new MemoryStorage();
+export const storage = storageInstance;

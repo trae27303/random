@@ -12,7 +12,7 @@ if ((dns as any).setDefaultResultOrder) {
 
 if (!process.env.DATABASE_URL) {
   console.warn(
-    "DATABASE_URL not set. Falling back to memory storage.",
+    "[DB] DATABASE_URL not set. Falling back to memory storage.",
   );
 }
 
@@ -21,21 +21,22 @@ function buildPool() {
   try {
     const url = new URL(process.env.DATABASE_URL);
     const hostname = url.hostname;
+
+    // Detect Supabase domains for automatic SSL and SNI configuration
     const isSupabase =
       hostname.endsWith("supabase.co") ||
       hostname.endsWith("supabase.com") ||
       hostname.endsWith("pooler.supabase.com");
 
-    console.log(`[DB] Initializing connection to host: ${hostname} (Supabase detected: ${isSupabase})`);
+    console.log(`[DB] Configuring connection to ${hostname} (Supabase: ${isSupabase})`);
 
     let ssl: any = undefined;
     const sslMode = url.searchParams.get("sslmode");
     if (sslMode === "require" || isSupabase) {
       ssl = {
         rejectUnauthorized: false,
-        servername: hostname // Explicitly set for SNI to resolve "tenant not found" issues
+        servername: hostname // CRITICAL: Preserves SNI for Supavisor/Supabase tenant routing
       };
-      console.log(`[DB] SSL enabled for ${hostname} (rejectUnauthorized: false, servername: ${hostname})`);
     }
 
     const lookup4 = (targetHostname: string, opts: any, cb: any) => {
@@ -44,33 +45,22 @@ function buildPool() {
         opts = undefined;
       }
 
-      // If we have a forced IPv4 host override
-      if (process.env.PG_IPV4_HOST && targetHostname === hostname) {
-        console.log(`[DB] Applying forced IPv4 host override: ${process.env.PG_IPV4_HOST}`);
-        return dns.lookup(process.env.PG_IPV4_HOST, { family: 4 }, (err, address, family) => {
+      // If we have a forced IPv4 host override (e.g. to bypass IPv6 issues on Render)
+      const hostOverride = process.env.PG_IPV4_HOST;
+      if (hostOverride && targetHostname === hostname) {
+        return dns.lookup(hostOverride, { family: 4 }, (err, address, family) => {
           if (err) {
-            console.error(`[DB] Forced IPv4 lookup failed for ${process.env.PG_IPV4_HOST}:`, err);
+            console.error(`[DB] DNS Override failed for ${hostOverride}:`, err);
             return cb(err);
           }
-          console.log(`[DB] Resolved ${targetHostname} to ${address} via override`);
           const result = { address, family };
           if (opts && opts.all) return cb(null, [result]);
           return cb(null, result.address, result.family);
         });
       }
 
-      // Default forcing IPv4 for all lookups
+      // Default to forcing IPv4 for all database lookups
       return dns.lookup(targetHostname, Object.assign({ family: 4 }, opts || {}), (...args) => {
-        const [err, address] = args;
-        if (!err) {
-           // Only log successful lookups for the main host to avoid noise
-           if (targetHostname === hostname) {
-             const resolvedAddr = Array.isArray(address) ? address[0].address : address;
-             console.log(`[DB] Resolved ${targetHostname} to ${resolvedAddr}`);
-           }
-        } else {
-           console.error(`[DB] Lookup failed for ${targetHostname}:`, err);
-        }
         cb(...args);
       });
     };
@@ -79,12 +69,15 @@ function buildPool() {
       connectionString: process.env.DATABASE_URL,
       ssl,
       lookup: lookup4,
-      connectionTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000, // Slightly longer for cloud environments
       idleTimeoutMillis: 30000,
+      max: 10 // Reasonable pool size
     };
+
+    console.log(`[DB] Pool initialized with SNI servername: ${ssl?.servername || "none"}`);
     return new Pool(cfg);
   } catch (err) {
-    console.error("[DB] Failed to initialize pool:", err);
+    console.error("[DB] Failed to parse DATABASE_URL or initialize pool:", err);
     return null;
   }
 }
