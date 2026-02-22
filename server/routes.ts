@@ -34,7 +34,13 @@ export async function registerRoutes(
     secret: process.env.SESSION_SECRET || "change-me",
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 86400000 } // 1 day
+    proxy: true, // Required for secure cookies behind Render's proxy
+    cookie: {
+      maxAge: 86400000, // 1 day
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    }
   });
 
   app.use(sessionMiddleware);
@@ -43,22 +49,36 @@ export async function registerRoutes(
 
   passport.use(new LocalStrategy(async (username, password, done) => {
     try {
+      console.log(`[Auth] Attempting login for: ${username}`);
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password) { // Plain text for simplicity as requested, in prod use bcrypt
+      if (!user) {
+        console.warn(`[Auth] User not found: ${username}`);
         return done(null, false, { message: "Invalid credentials" });
       }
+      if (user.password !== password) { // Plain text for simplicity as requested, in prod use bcrypt
+        console.warn(`[Auth] Password mismatch for: ${username}`);
+        return done(null, false, { message: "Invalid credentials" });
+      }
+      console.log(`[Auth] Login successful for: ${username} (ID: ${user.id})`);
       return done(null, user);
     } catch (err) {
+      console.error(`[Auth] Database error during login for ${username}:`, err);
       return done(err);
     }
   }));
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log(`[Auth] Serializing user ID: ${user.id}`);
+    done(null, user.id);
+  });
+
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      if (!user) console.warn(`[Auth] Failed to deserialize user ID: ${id}`);
       done(null, user);
     } catch (err) {
+      console.error(`[Auth] Error deserializing user ID: ${id}`, err);
       done(err);
     }
   });
@@ -67,6 +87,7 @@ export async function registerRoutes(
   app.post("/api/register", async (req, res, next) => {
     try {
       const data = insertUserSchema.parse(req.body);
+      console.log(`[Auth] Registering new user: ${data.username}`);
       const existing = await storage.getUserByUsername(data.username);
       if (existing) {
         return res.status(400).json({ message: "Username already exists" });
@@ -84,19 +105,32 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.json(req.user);
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) return next(err);
+      if (!user) return res.status(401).json({ message: info?.message || "Login failed" });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        console.log(`[Auth] Session established for user: ${user.username}, SessionID: ${req.sessionID}`);
+        res.json(user);
+      });
+    })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const username = req.user?.username;
     req.logout((err) => {
       if (err) return next(err);
+      console.log(`[Auth] Logged out user: ${username}`);
       res.json({ message: "Logged out" });
     });
   });
 
   app.get("/api/user", (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    const isAuth = req.isAuthenticated();
+    console.log(`[Auth] GET /api/user - Authenticated: ${isAuth}, SessionID: ${req.sessionID}, UserID: ${req.user?.id || 'none'}`);
+    if (!isAuth) return res.status(401).json({ message: "Not authenticated" });
     res.json(req.user);
   });
 
@@ -117,9 +151,9 @@ export async function registerRoutes(
   });
 
   app.post("/api/models/join", async (req, res) => {
-     // TODO: Add logic to upgrade user to model if needed
-     // For now, role is set at registration
-     res.status(501).json({ message: "Not implemented yet" });
+    // TODO: Add logic to upgrade user to model if needed
+    // For now, role is set at registration
+    res.status(501).json({ message: "Not implemented yet" });
   });
 
   // --- EXISTING ROUTES ---
@@ -150,7 +184,7 @@ export async function registerRoutes(
         // @ts-ignore
         passport.session()(request, {} as any, () => {
           wss.handleUpgrade(request, socket, head, (ws) => {
-             wss.emit('connection', ws, request);
+            wss.emit('connection', ws, request);
           });
         });
       });
@@ -158,7 +192,7 @@ export async function registerRoutes(
   });
 
   let activeUsersCount = 0;
-  
+
   // Random Chat Queues
   let waitingUsers: WebSocket[] = [];
   const activeMatches = new Map<WebSocket, WebSocket>();
@@ -189,7 +223,7 @@ export async function registerRoutes(
   wss.on("connection", (ws, req: any) => {
     activeUsersCount++;
     const user = req.user as Express.User | undefined;
-    
+
     if (user) {
       userSockets.set(user.id, ws);
       // Mark as online?
@@ -265,7 +299,7 @@ export async function registerRoutes(
             if (!user) return;
             const modelId = message.modelId;
             const modelWs = userSockets.get(modelId);
-            
+
             // Check tokens
             const currentUser = await storage.getUser(user.id);
             if (!currentUser || currentUser.tokens < 20) {
@@ -286,11 +320,11 @@ export async function registerRoutes(
             });
 
             // Notify Model
-            sendMessage(modelWs, { 
-              type: "incoming_call", 
-              callId: call.id, 
-              callerId: user.id, 
-              callerName: user.username 
+            sendMessage(modelWs, {
+              type: "incoming_call",
+              callId: call.id,
+              callerId: user.id,
+              callerName: user.username
             });
             break;
           }
@@ -305,7 +339,7 @@ export async function registerRoutes(
             // Requirement: "token start consume after they got connected"
             // For simplicity, we assume "accept" = connected start. 
             // Ideally we wait for ICE connection state, but that's complex.
-            
+
             const callerWs = userSockets.get(call.callerId);
             if (callerWs) {
               sendMessage(callerWs, { type: "call_accepted", callId: call.id, modelId: user.id });
@@ -365,14 +399,14 @@ export async function registerRoutes(
           case "end_call": {
             const call = await storage.getCall(message.callId);
             if (!call) return;
-            
+
             // Cleanup
             const timer = activeCalls.get(call.id);
             if (timer) {
               clearInterval(timer);
               activeCalls.delete(call.id);
             }
-            
+
             await storage.endCall(call.id, new Date(), call.totalCost || 0);
 
             const otherId = user?.id === call.callerId ? call.modelId : call.callerId;
@@ -397,7 +431,7 @@ export async function registerRoutes(
         // Clean up active calls? Maybe logic to end them if user disconnects?
       }
     });
-    
+
     ws.on("error", () => {
       removeFromWaiting(ws);
       unmatch(ws);

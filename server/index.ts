@@ -1,13 +1,22 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import dns from "dns";
 
-(dns as any).setDefaultResultOrder?.("ipv4first");
+if ((dns as any).setDefaultResultOrder) {
+  (dns as any).setDefaultResultOrder("ipv4first");
+  console.log("[System] DNS result order set to ipv4first");
+}
 
 const app = express();
+app.set("trust proxy", 1); // Trust first proxy (Render) — required for secure cookies behind reverse proxy
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || true,
+  credentials: true,
+}));
 const httpServer = createServer(app);
 
 declare module "http" {
@@ -63,7 +72,12 @@ app.use((req, res, next) => {
   next();
 });
 
+import { initStorage } from "./storage";
+
 (async () => {
+  // Verify storage backend is healthy; falls back to MemoryStorage if HttpStorage API is down
+  await initStorage();
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

@@ -1,4 +1,11 @@
 import "dotenv/config";
+import dns from "dns";
+
+// Force IPv4 for all DNS lookups to avoid Render -> Supabase connection issues
+if ((dns as any).setDefaultResultOrder) {
+  (dns as any).setDefaultResultOrder("ipv4first");
+}
+
 import express from "express";
 import { db as rawDb } from "./db";
 import { reports, users, calls, type InsertReport, type InsertUser, type InsertCall } from "@shared/schema";
@@ -6,7 +13,7 @@ import { eq } from "drizzle-orm";
 import cors from "cors";
 
 if (!rawDb) {
-  console.error("DATABASE_URL is required for API service");
+  console.error("[API] DATABASE_URL is required for API service");
   process.exit(1);
 }
 const db = rawDb!;
@@ -153,11 +160,22 @@ app.post("/calls/:id/end", async (req, res, next) => {
 });
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ message: err?.message || "Internal Error" });
+  const errorDetails = {
+    message: err?.message || "Internal Error",
+    code: err?.code,
+    detail: err?.detail,
+    stack: process.env.NODE_ENV === "development" ? err?.stack : undefined,
+  };
+
+  console.error("[API Error]", {
+    ...errorDetails,
+    stack: err?.stack, // Always log stack to console
+  });
+
+  res.status(500).json({ message: errorDetails.message });
 });
 
 const port = parseInt(process.env.PORT || "5001", 10);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`api listening on ${port}`);
+  console.log(`[API] Storage service listening on port ${port}`);
 });

@@ -4,14 +4,14 @@ import { eq } from "drizzle-orm";
 
 export interface IStorage {
   createReport(report: InsertReport): Promise<Report>;
-  
+
   // User Management
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserTokens(id: number, tokens: number): Promise<User>;
   getModels(): Promise<User[]>;
-  
+
   // Call Management
   createCall(call: InsertCall): Promise<Call>;
   getCall(id: number): Promise<Call | undefined>;
@@ -93,7 +93,7 @@ export class MemoryStorage implements IStorage {
   private reports: Report[] = [];
   private users: User[] = [];
   private calls: Call[] = [];
-  
+
   private reportId = 1;
   private userId = 1;
   private callId = 1;
@@ -182,7 +182,7 @@ export class HttpStorage implements IStorage {
 
   constructor(baseUrl: string, authToken?: string) {
     this.base = baseUrl.replace(/\/+$/, "");
-    this.headers = { 
+    this.headers = {
       "Content-Type": "application/json",
       ...(authToken ? { "Authorization": `Bearer ${authToken}` } : {})
     };
@@ -198,11 +198,19 @@ export class HttpStorage implements IStorage {
 
     try {
       const res = await fetch(url, options);
-      
+
       if (!res.ok) {
         const text = await res.text();
-        console.error(`HttpStorage Error [${method} ${url}]: ${res.status} ${text}`);
-        throw new Error(`HttpStorage Error: ${res.status} ${text}`);
+        let message = text;
+        try {
+          const json = JSON.parse(text);
+          message = json.message || text;
+        } catch {
+          // Fallback to raw text
+        }
+
+        console.error(`HttpStorage Error [${method} ${url}]: ${res.status} ${message}`);
+        throw new Error(message);
       }
 
       if (res.status === 204) return undefined as unknown as T;
@@ -273,14 +281,49 @@ export class HttpStorage implements IStorage {
 const storageBackend = process.env.STORAGE_BACKEND;
 const storageBaseUrl = process.env.STORAGE_BASE_URL;
 
-console.log(`[Storage] Initializing storage backend: ${storageBackend || "default (db/memory)"}`);
-if (storageBackend === "http") {
-  console.log(`[Storage] Using HttpStorage with Base URL: ${storageBaseUrl}`);
+// Prioritize DatabaseStorage if DATABASE_URL is present, unless HTTP is explicitly requested and configured.
+const isHttp = storageBackend === "http" && !!storageBaseUrl;
+
+let _storage: IStorage;
+
+if (isHttp) {
+  console.log(`[Storage] Using HttpStorage (Target: ${storageBaseUrl})`);
+  _storage = new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN);
+} else if (db) {
+  console.log(`[Storage] Using DatabaseStorage (Direct SQL)`);
+  _storage = new DatabaseStorage();
+} else {
+  console.warn(`[Storage] DATABASE_URL missing and HTTP storage not configured. Using MemoryStorage (Volatile).`);
+  _storage = new MemoryStorage();
 }
 
-export const storage: IStorage =
-  storageBackend === "http" && storageBaseUrl
-    ? new HttpStorage(storageBaseUrl, process.env.STORAGE_TOKEN)
-    : db
-    ? new DatabaseStorage()
-    : new MemoryStorage();
+// Mutable export so initStorage() can swap the backend at runtime
+export let storage: IStorage = _storage;
+
+/**
+ * Async health check — call at server startup before handling requests.
+ * If HttpStorage API is unreachable/broken, falls back to MemoryStorage.
+ */
+export async function initStorage(): Promise<void> {
+  if (!isHttp) return;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(`${storageBaseUrl}/healthz`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      throw new Error(`Health check returned ${res.status}`);
+    }
+    console.log("[Storage] ✓ HttpStorage health check passed");
+  } catch (err: any) {
+    console.error(`[Storage] ✗ HttpStorage health check FAILED: ${err.message}`);
+    console.warn("[Storage] ⚠ Falling back to MemoryStorage (data will not persist across restarts)");
+    _storage = new MemoryStorage();
+    storage = _storage;
+  }
+}
