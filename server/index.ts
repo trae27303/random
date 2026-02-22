@@ -1,13 +1,18 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import dns from "dns";
 
-(dns as any).setDefaultResultOrder?.("ipv4first");
+if ((dns as any).setDefaultResultOrder) {
+  (dns as any).setDefaultResultOrder("ipv4first");
+  console.log("[System] DNS result order set to ipv4first");
+}
 
 const app = express();
+app.use(cors());
 const httpServer = createServer(app);
 
 declare module "http" {

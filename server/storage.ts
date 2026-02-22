@@ -281,14 +281,15 @@ export class HttpStorage implements IStorage {
 const storageBackend = process.env.STORAGE_BACKEND;
 const storageBaseUrl = process.env.STORAGE_BASE_URL;
 
-console.log(`[Storage] Initializing storage backend: ${storageBackend || "default (db/memory)"}`);
-if (storageBackend === "http") {
+const isHttp = storageBackend === "http" && !!storageBaseUrl;
+console.log(`[Storage] Initializing storage backend: ${isHttp ? "http" : (db ? "database" : "memory")}`);
+if (isHttp) {
   console.log(`[Storage] Using HttpStorage with Base URL: ${storageBaseUrl}`);
 }
 
 export const storage: IStorage =
-  storageBackend === "http" && storageBaseUrl
-    ? new HttpStorage(storageBaseUrl, process.env.STORAGE_TOKEN)
+  isHttp
+    ? new HttpStorage(storageBaseUrl!, process.env.STORAGE_TOKEN)
     : db
     ? new DatabaseStorage()
     : new MemoryStorage();
